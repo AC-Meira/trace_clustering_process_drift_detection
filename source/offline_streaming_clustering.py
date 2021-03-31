@@ -150,14 +150,18 @@ def compare_clusterings(resp_1, resp_2):
                 # diff_Silhouette
                 # diff_k
                 # -----------------
-                # For numeric features, calculate the difference
-                    r["diff_" + key_] = resp_2[key] - resp_1[key]
+                # For numeric features, calculate the 
+                    try:
+                        r["diff_" + key_] = resp_2[key] - resp_1[key]
+                    except ValueError:
+                        pass
             else:
                 r["i"] = resp_2["i"]
 
         except Exception as e:
+            print(e)
             print(key)
-            print(resp_1[key])
+            # print(resp_1[key])
             raise
 
     return r
