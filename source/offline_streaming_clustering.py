@@ -13,9 +13,20 @@ def get_validation_indexes(X, y_pred):
         Returns clustering validation indexes (Silhouette and DBi) 
         based on input X and groups y_pred.
     """
+    
+    try:
+        sc = silhouette_score(X, y_pred)
+    except ValueError:
+        sc = float("nan")
+    
+    try:
+        dbs = davies_bouldin_score(X, y_pred)
+    except ValueError:
+        dbs = float("nan")
+        
     return {
-        "Silhouette": silhouette_score(X, y_pred),
-        "DBi": davies_bouldin_score(X, y_pred),
+        "Silhouette": sc,
+        "DBi": dbs,
     }
 
 
@@ -159,10 +170,14 @@ def compare_clusterings(resp_1, resp_2):
                 r["i"] = resp_2["i"]
 
         except Exception as e:
-            print(e)
-            print(key)
-            # print(resp_1[key])
-            raise
+            # print("Aqui??????????????????")
+            # print("key:",key)
+            # print("r:",r)
+            # print("resp_1:",resp_1)
+            # print("resp_2:",resp_2)
+            # print("resp_1[key]:",resp_1[key])
+            # print("resp_2[key]:",resp_2[key])
+            raise e
 
     return r
 
@@ -239,8 +254,8 @@ def run_offline_clustering_window(
         # ----------------------------
         # Calculate validation indexes
         # ----------------------------
-        if max(counts) >= 2 and len(values) > 1:
-            r.update(get_validation_indexes(X, y_pred))
+        # if max(counts) >= 2 and len(values) > 1:
+        r.update(get_validation_indexes(X, y_pred))
 
         # Add centroids to results
         r["centroids"] = centers
