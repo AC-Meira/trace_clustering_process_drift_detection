@@ -118,6 +118,7 @@ def detect_concept_drift(
     lowers = []
     uppers = []
     means = df[var_ref].rolling(window=rolling_window).mean().values.tolist()
+    
 
     # Iterates over the values
     for i, row in df.iterrows():

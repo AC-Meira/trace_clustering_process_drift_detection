@@ -1,12 +1,16 @@
 from sklearn.metrics import silhouette_score, davies_bouldin_score, mean_squared_error
+from sklearn.metrics import homogeneity_score, completeness_score, adjusted_rand_score
+from sklearn.metrics import fowlkes_mallows_score, v_measure_score, adjusted_mutual_info_score
+from sklearn.metrics import calinski_harabasz_score
 from scipy.spatial import distance
 from scipy.stats import skew
 import pandas as pd
 import numpy as np
+import math
 from tqdm import tqdm_notebook
 from copy import deepcopy
 from sklearn.base import clone as sk_clone
-
+import hdbscan
 
 def get_validation_indexes(X, y_pred):
     """
@@ -29,6 +33,81 @@ def get_validation_indexes(X, y_pred):
         "DBi": dbs,
     }
 
+
+def get_density_metrics(X, y_pred):
+    """
+        Returns clustering validation indexes (Silhouette and DBi) 
+        based on input X and groups y_pred.
+    """
+    
+    try:
+        ch = calinski_harabasz_score(X, y_pred)
+    except ValueError:
+        ch = float("nan")
+        
+    try:
+        vi = hdbscan.validity.validity_index(X, y_pred)
+    except ValueError:
+        vi = float("nan")
+    
+        
+    return {
+        "calinski_harabasz_score": ch,
+        "validity_index": vi,
+    }
+
+
+def get_label_metrics(y_true_i, y_true_j):
+    """
+        Calculate features based on the mean squared error between
+        clustering_j and clustering_i.
+
+        Parameters:
+        -----------
+            clustering_i (np.array): Set of centroids at i
+            clustering_j (np.array): Set of centroids at the following index
+    """
+        
+    try:
+        ar = adjusted_rand_score(y_true_i, y_true_j)
+    except ValueError:
+        ar = float("nan")
+        
+    try:
+        ami = adjusted_mutual_info_score(y_true_i, y_true_j)
+    except ValueError:
+        ami = float("nan")
+        
+    try:
+        hs = homogeneity_score(y_true_i, y_true_j)
+    except ValueError:
+        hs = float("nan")
+        
+    try:
+        cs = completeness_score(y_true_i, y_true_j)
+    except ValueError:
+        cs = float("nan")
+        
+    try:
+        vm = v_measure_score(y_true_i, y_true_j)
+    except ValueError:
+        vm = float("nan")
+         
+    try:
+        fm = fowlkes_mallows_score(y_true_i, y_true_j)
+    except ValueError:
+        fm = float("nan")
+        
+  
+    return {
+        "adjusted_rand_score": ar,
+        "adjusted_mutual_info_score": ami,
+        "homogeneity_score": hs,
+        "completeness_score": cs,
+        "v_measure_score": vm,
+        "fowlkes_mallows_score": fm,
+    } 
+    
 
 def get_centroids_metrics(X, y_pred, centroids):
     """
@@ -96,8 +175,8 @@ def get_mean_squared_error(clustering_i, clustering_j):
         }
     except:
         return {}
-
-
+    
+    
 def compare_clusterings(resp_1, resp_2):
     """
         Compare two clusterings in consecutive windows and return
@@ -118,11 +197,19 @@ def compare_clusterings(resp_1, resp_2):
         try:
             if key != "i":
                 key_ = key.replace("_list", "")
+                
+                # ---------------
+                # diff_labels
+                # ---------------
+                if key == "y_pred":
+                    r.update(
+                        get_label_metrics(resp_1[key], resp_2[key])
+                    )
             
                 # ---------------
                 # diff_centroids
                 # ---------------
-                if key == "centroids":
+                elif key == "centroids":
                     # Calculates the minimum average distance between centroids
                     r["diff_" + key_] = min(
                         distance.cdist(resp_1[key], resp_2[key]).min(axis=0).mean(),
@@ -214,7 +301,9 @@ def run_offline_clustering_window(
         X = df.loc[i : i + window - 1].values
        
         # Fit and predict model to the current window
-        y_pred = model.fit_predict(X)
+        model_clone = sk_clone(model)
+        y_pred = model_clone.fit_predict(X)
+        
         
         # Centroids
         centers =  (
@@ -247,6 +336,9 @@ def run_offline_clustering_window(
         
         # Start dictionary to be filled with the results
         r = {"i": i, "k": len(np.unique(y_pred[y_pred > 0]))}
+        
+        # Add labels
+        r["y_pred"] = y_pred
 
         # Count traces per clusters
         values, counts = np.unique(y_pred, return_counts=True)
@@ -256,6 +348,12 @@ def run_offline_clustering_window(
         # ----------------------------
         # if max(counts) >= 2 and len(values) > 1:
         r.update(get_validation_indexes(X, y_pred))
+        
+        # ----------------------------
+        # Calculate density metrics
+        # ----------------------------
+        r.update(get_density_metrics(X, y_pred))
+        
 
         # Add centroids to results
         r["centroids"] = centers
@@ -268,7 +366,21 @@ def run_offline_clustering_window(
         # Add features to results
         r["volume_list"] = counts
         r.update(get_centroids_metrics(X, y_pred, r["centroids"]))
+        
+        #If hdbscan and have min span tree, calculate relative_validity (DBCV simplified)
+        if "HDBSCAN" and "gen_min_span_tree=True" in str(model):
+            try:
+                r["relative_validity"] = model_clone.relative_validity_
+            except:
+                r["relative_validity"] = float("nan")
+            
+            # try:
+            #     r["DBCV_variant"] = DBCV_variant(model_clone)
+            # except:
+            #     r["DBCV_variant"] = float("nan")
+            
 
+            
         # Add current iteration to full response
         resp.append(r)
 
