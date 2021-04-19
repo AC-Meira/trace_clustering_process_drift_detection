@@ -117,6 +117,25 @@ def get_tfidf_representation(tokens):
     return get_count_representation(tokens, False, True, (1,1))
 
 
+# # # # # # # # # # # # # #
+# Activity and Transition #
+# # # # # # # # # # # # # #
+def get_activity_transitions_frequency_representation(tokens):    
+    """
+        Binary representation of traces
+        (1 or 0 if an activity occur in traces)
+    """
+    return pd.concat([get_frequency_transitions_representation(tokens), get_frequency_representation(tokens)],axis=1)
+
+def get_activity_transitions_binary_representation(tokens):    
+    """
+        Frequency representation of traces
+        (# of times an activity occur in traces)
+    """
+    
+    return pd.concat([get_binary_transitions_representation(tokens), get_binary_representation(tokens)],axis=1)
+
+
 # # # # # # # # # #
 # Extra Functions #
 # # # # # # # # # #

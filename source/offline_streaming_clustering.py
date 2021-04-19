@@ -30,9 +30,84 @@ def get_validation_indexes(X, y_pred):
         
     return {
         "Silhouette": sc,
-        "DBi": dbs,
+        "DBi": dbs
     }
 
+
+def get_inter_dist_metrics(centroids):
+    """
+        Returns clustering validation indexes (Silhouette and DBi) 
+        based on input X and groups y_pred.
+    """
+    # Inter-clusters distance
+    try:
+        inter_dist_euclidean = distance.pdist(centroids, metric = 'euclidean')
+        inter_dist_euclidean_mean = inter_dist_euclidean.mean()
+        inter_dist_euclidean_std = inter_dist_euclidean.std()
+    except ValueError:
+        inter_dist_euclidean_mean = float("nan")
+        inter_dist_euclidean_std = float("nan")
+        
+    try:
+        inter_dist_correlation = distance.pdist(centroids, metric = 'correlation')
+        inter_dist_correlation_mean = inter_dist_correlation.mean()
+        inter_dist_correlation_std = inter_dist_correlation.std()
+    except ValueError:
+        inter_dist_correlation_mean = float("nan")
+        inter_dist_correlation_std = float("nan")
+        
+    try:
+        inter_dist_hamming = distance.pdist(centroids, metric = 'hamming')
+        inter_dist_hamming_mean = inter_dist_hamming.mean()
+        inter_dist_hamming_std = inter_dist_hamming.std()
+    except ValueError:
+        inter_dist_hamming_mean = float("nan")
+        inter_dist_hamming_std = float("nan")
+        
+    try:
+        inter_dist_jaccard = distance.pdist(centroids, metric = 'jaccard')
+        inter_dist_jaccard_mean = inter_dist_jaccard.mean()
+        inter_dist_jaccard_std = inter_dist_jaccard.std()
+    except ValueError:
+        inter_dist_jaccard_mean = float("nan")
+        inter_dist_jaccard_std = float("nan")
+        
+    try:
+        inter_dist_cosine = distance.pdist(centroids, metric = 'cosine')
+        inter_dist_cosine_mean = inter_dist_cosine.mean()
+        inter_dist_cosine_std = inter_dist_cosine.std()
+    except ValueError:
+        inter_dist_cosine_mean = float("nan")
+        inter_dist_cosine_std = float("nan")
+        
+    try:
+        inter_dist_cityblock = distance.pdist(centroids, metric = 'cityblock')
+        inter_dist_cityblock_mean = inter_dist_cityblock.mean()
+        inter_dist_cityblock_std = inter_dist_cityblock.std()
+    except ValueError:
+        inter_dist_cityblock_mean = float("nan")
+        inter_dist_cityblock_std = float("nan")
+        
+        
+    return {
+        "inter_dist_euclidean_mean": inter_dist_euclidean_mean
+        ,"inter_dist_euclidean_std": inter_dist_euclidean_std
+        
+        ,"inter_dist_correlation_mean": inter_dist_correlation_mean
+        ,"inter_dist_correlation_std": inter_dist_correlation_std
+        
+        ,"inter_dist_hamming_mean": inter_dist_hamming_mean
+        ,"inter_dist_hamming_std": inter_dist_hamming_std
+        
+        ,"inter_dist_jaccard_mean": inter_dist_jaccard_mean
+        ,"inter_dist_jaccard_std": inter_dist_jaccard_std
+        
+        ,"inter_dist_cosine_mean": inter_dist_cosine_mean
+        ,"inter_dist_cosine_std": inter_dist_cosine_std
+        
+        ,"inter_dist_cityblock_mean": inter_dist_cityblock_mean
+        ,"inter_dist_cityblock_std": inter_dist_cityblock_std
+    }
 
 def get_density_metrics(X, y_pred):
     """
@@ -45,15 +120,27 @@ def get_density_metrics(X, y_pred):
     except ValueError:
         ch = float("nan")
         
+        
+    #Compute the density based cluster validity index for the clustering specified by labels 
+    # and for each cluster in labels.
     try:
-        vi = hdbscan.validity.validity_index(X, y_pred)
+        vi, vi_per_cluster = hdbscan.validity.validity_index(X.values, y_pred, per_cluster_scores=True)
+        vi_mean = vi_per_cluster.mean()
+        vi_std = vi_per_cluster.std()
+        
     except ValueError:
         vi = float("nan")
+        vi_mean = float("nan")
+        vi_std = float("nan")
+        vi_per_cluster = list(["nan"])
     
         
     return {
-        "calinski_harabasz_score": ch,
-        "validity_index": vi,
+        "calinski_harabasz_score": ch
+        ,"validity_index": vi
+        ,"validity_index_mean": vi_mean
+        ,"validity_index_std": vi_std
+        ,"validity_index_per_cluster": list(vi_per_cluster)
     }
 
 
@@ -143,13 +230,13 @@ def get_centroids_metrics(X, y_pred, centroids):
         dist_intra = distance.pdist(X_in_cluster).mean()
         r["dist_intra_cluster_list"].append(dist_intra)
 
-        # Skewness of cluster
-        skewness = skew(X_in_cluster, axis=None)
-        r["skewness_list"].append(skewness)
-
         # Std of cluster
         c_std = X_in_cluster.std()
         r["cluster_std_list"].append(c_std)
+        
+        # Skewness of cluster
+        skewness = skew(X_in_cluster, axis=None)
+        r["skewness_list"].append(skewness)
 
     return r
 
@@ -187,6 +274,7 @@ def compare_clusterings(resp_1, resp_2):
             resp_1 (dict): Information about clustering at i
             resp_2 (dict): Information about clustering at i + 1
     """
+    
     r = {}
 
     # If there is no centroid in the two clusterings, return empty
@@ -210,7 +298,8 @@ def compare_clusterings(resp_1, resp_2):
                 # diff_centroids
                 # ---------------
                 elif key == "centroids":
-                    # Calculates the minimum average distance between centroids
+                    # Calculates the minimum average distance between centroids  
+
                     r["diff_" + key_] = min(
                         distance.cdist(resp_1[key], resp_2[key]).min(axis=0).mean(),
                         distance.cdist(resp_2[key], resp_1[key]).min(axis=0).mean(),
@@ -239,37 +328,33 @@ def compare_clusterings(resp_1, resp_2):
                         r["diff_" + key_] = (
                             (np.array(resp_2[key]) - np.array(resp_1[key])) ** 2
                         ).mean()
-                    except ValueError:
-                        pass
+                    except:
+                        r["diff_" + key_] = float("nan")
 
                 else:
                 # -----------------
                 # diff_DBi
                 # diff_Silhouette
                 # diff_k
+                # etc
                 # -----------------
                 # For numeric features, calculate the 
                     try:
                         r["diff_" + key_] = resp_2[key] - resp_1[key]
-                    except ValueError:
-                        pass
+                    except:
+                        r["diff_" + key_] = float("nan")
             else:
                 r["i"] = resp_2["i"]
 
         except Exception as e:
-            # print("Aqui??????????????????")
-            # print("key:",key)
-            # print("r:",r)
-            # print("resp_1:",resp_1)
-            # print("resp_2:",resp_2)
-            # print("resp_1[key]:",resp_1[key])
-            # print("resp_2[key]:",resp_2[key])
             raise e
 
     return r
 
 def run_offline_clustering_window(
-    model, window, df, sliding_window=False, sliding_step=5
+        tokens, representation_function,
+    model, window#, df
+    , sliding_window=False, sliding_step=5
 ):
     """
         Runs the trace clustering approach based on moving trace windows
@@ -290,15 +375,23 @@ def run_offline_clustering_window(
     resp = []
 
     if sliding_window:
-        loop = range(0, len(df) - window + 1, sliding_step)
+        loop = range(0, len(tokens) - window + 1, sliding_step)
     else:
-        loop = range(0, len(df), window)
+        loop = range(0, len(tokens), window)
 
-    col_names = df.columns
+    X_full = representation_function(tokens)
 
     for i in loop:
         # Selects traces inside the window
-        X = df.loc[i : i + window - 1].values
+        # X = df.loc[i : i + window - 1]
+        X_tokens = tokens.loc[i : i + window - 1]
+        
+        # Transform traces
+        X = representation_function(X_tokens)
+        
+        # Reindex for all activities
+        X = X.reindex(columns = X_full.columns, fill_value=0, copy=True)
+
        
         # Fit and predict model to the current window
         model_clone = sk_clone(model)
@@ -313,9 +406,8 @@ def run_offline_clustering_window(
             .drop(-1, errors="ignore")
             .values
         )
-
+        
         # Lookup table to order clusters labels the same way
-        #
         idx = np.argsort(centers.sum(axis=1))
         lut = np.zeros_like(idx)
         lut[idx] = np.arange(len(idx))
@@ -324,6 +416,7 @@ def run_offline_clustering_window(
             y_pred = lut[y_pred]
         except:
             pass
+    
         
         # Recalculate centroids with new ordering
         centers =  (
@@ -339,6 +432,10 @@ def run_offline_clustering_window(
         
         # Add labels
         r["y_pred"] = y_pred
+        
+        # Add info about traces
+        r["n_variants"] = len(X_tokens.unique())
+        r["n_representation_distinct"] = len(np.unique(X, axis=0))
 
         # Count traces per clusters
         values, counts = np.unique(y_pred, return_counts=True)
@@ -349,19 +446,18 @@ def run_offline_clustering_window(
         # if max(counts) >= 2 and len(values) > 1:
         r.update(get_validation_indexes(X, y_pred))
         
+        
         # ----------------------------
         # Calculate density metrics
         # ----------------------------
         r.update(get_density_metrics(X, y_pred))
         
-
+        
         # Add centroids to results
         r["centroids"] = centers
-
-        # Inter-clusters distance
-        inter_dist = distance.pdist(r["centroids"])
-        r["avg_dist_between_centroids"] = inter_dist.mean()
-        r["std_dist_between_centroids"] = inter_dist.std()
+        
+        # Add Inter-clusters distance
+        r.update(get_inter_dist_metrics(r["centroids"]))
 
         # Add features to results
         r["volume_list"] = counts
@@ -386,6 +482,7 @@ def run_offline_clustering_window(
 
     # Turn into dataframe
     run_df = pd.DataFrame(resp).set_index("i")
+    run_df.fillna(0, inplace=True)
 
     # Expand values for individual clusters
     for col in [
@@ -395,7 +492,7 @@ def run_offline_clustering_window(
         "cluster_std_list",
         "volume_list",
     ]:
-        min_individuals = run_df[col].apply(len).max()
+        # min_individuals = run_df[col].apply(len).max()
 
         try:
             # Create averages

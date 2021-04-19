@@ -5,7 +5,7 @@ import scipy
 import scipy.stats
 
 
-def get_metrics(drifts: list, resp: list, window_size=100, verbose=False) -> dict:
+def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=100, verbose=False) -> dict:
     """
     Given the drifts predicted and the ground truth, calculates binary classification metrics 
     (Precision, Recall, F1 Score) and delay of detection. We consider a drift to be detected
@@ -24,6 +24,7 @@ def get_metrics(drifts: list, resp: list, window_size=100, verbose=False) -> dic
     """
     # Initialize metrics with 0
     precision = 0
+    specificity = 0
     recall = 0
     tp = 0
     delay = 0
@@ -62,7 +63,7 @@ def get_metrics(drifts: list, resp: list, window_size=100, verbose=False) -> dic
         f1 = 0.0
         
     if tp > 0:
-        avg_delay = delay/tp
+        avg_delay = (delay/tp)/window_size[0]
     
     return {
         "Precision": precision,
@@ -70,7 +71,9 @@ def get_metrics(drifts: list, resp: list, window_size=100, verbose=False) -> dic
         "F1": f1,
         "Delay": avg_delay,
         "Correct_Predictions": predicted,
-        "Support": sum(predicted),
+        "Support_correct": sum(predicted),
+        "Support": len(drifts)+len(not_drifts),
+        "Not_Drifts_Found": not_drifts,
         "Drifts_Found": drifts,
         "Resp": resp,
     }
@@ -110,6 +113,7 @@ def detect_concept_drift(
     # Initialize variables
     window_buffer = []
     drifts = []
+    not_drifts = []
     mean = None
     std = None
 
@@ -122,6 +126,7 @@ def detect_concept_drift(
 
     # Iterates over the values
     for i, row in df.iterrows():
+
         # If the rolling window is of the desired size
         if len(window_buffer) < rolling_window:
             window_buffer.append(row[var_ref])
@@ -155,6 +160,8 @@ def detect_concept_drift(
                     drifts.append(i)
 
                     window_buffer = []
+                else:
+                    not_drifts.append(i)
             else:
                 lowers.append(np.nan)
                 uppers.append(np.nan)
@@ -163,6 +170,14 @@ def detect_concept_drift(
                 window_buffer.pop(0)
 
             window_buffer.append(row[var_ref])
+            
+            # if mean is not None:
+            #     if expected_lower > np.mean(window_buffer) or np.mean(window_buffer) > expected_upper:
+            #         if verbose:
+            #             print(i, expected_lower, expected_upper, np.mean(window_buffer), row[var_ref])
+            #         drifts.append(i)
+            #         window_buffer = []
+                    
             if i in drifts:
                 mean = None
                 std = None
@@ -170,4 +185,4 @@ def detect_concept_drift(
                 mean = np.mean(window_buffer)
                 std = np.std(window_buffer)
 
-    return drifts, {"lowers": lowers, "uppers": uppers, "means": means}
+    return drifts, not_drifts, {"lowers": lowers, "uppers": uppers, "means": means}
