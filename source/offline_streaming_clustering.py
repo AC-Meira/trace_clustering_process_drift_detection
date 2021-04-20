@@ -64,13 +64,13 @@ def get_inter_dist_metrics(centroids):
         inter_dist_hamming_mean = float("nan")
         inter_dist_hamming_std = float("nan")
         
-    try:
-        inter_dist_jaccard = distance.pdist(centroids, metric = 'jaccard')
-        inter_dist_jaccard_mean = inter_dist_jaccard.mean()
-        inter_dist_jaccard_std = inter_dist_jaccard.std()
-    except ValueError:
-        inter_dist_jaccard_mean = float("nan")
-        inter_dist_jaccard_std = float("nan")
+    # try:
+    #     inter_dist_jaccard = distance.pdist(centroids, metric = 'jaccard')
+    #     inter_dist_jaccard_mean = inter_dist_jaccard.mean()
+    #     inter_dist_jaccard_std = inter_dist_jaccard.std()
+    # except ValueError:
+    #     inter_dist_jaccard_mean = float("nan")
+    #     inter_dist_jaccard_std = float("nan")
         
     try:
         inter_dist_cosine = distance.pdist(centroids, metric = 'cosine')
@@ -80,13 +80,13 @@ def get_inter_dist_metrics(centroids):
         inter_dist_cosine_mean = float("nan")
         inter_dist_cosine_std = float("nan")
         
-    try:
-        inter_dist_cityblock = distance.pdist(centroids, metric = 'cityblock')
-        inter_dist_cityblock_mean = inter_dist_cityblock.mean()
-        inter_dist_cityblock_std = inter_dist_cityblock.std()
-    except ValueError:
-        inter_dist_cityblock_mean = float("nan")
-        inter_dist_cityblock_std = float("nan")
+    # try:
+    #     inter_dist_cityblock = distance.pdist(centroids, metric = 'cityblock')
+    #     inter_dist_cityblock_mean = inter_dist_cityblock.mean()
+    #     inter_dist_cityblock_std = inter_dist_cityblock.std()
+    # except ValueError:
+    #     inter_dist_cityblock_mean = float("nan")
+    #     inter_dist_cityblock_std = float("nan")
         
         
     return {
@@ -99,14 +99,14 @@ def get_inter_dist_metrics(centroids):
         ,"inter_dist_hamming_mean": inter_dist_hamming_mean
         ,"inter_dist_hamming_std": inter_dist_hamming_std
         
-        ,"inter_dist_jaccard_mean": inter_dist_jaccard_mean
-        ,"inter_dist_jaccard_std": inter_dist_jaccard_std
+        # ,"inter_dist_jaccard_mean": inter_dist_jaccard_mean
+        # ,"inter_dist_jaccard_std": inter_dist_jaccard_std
         
         ,"inter_dist_cosine_mean": inter_dist_cosine_mean
         ,"inter_dist_cosine_std": inter_dist_cosine_std
         
-        ,"inter_dist_cityblock_mean": inter_dist_cityblock_mean
-        ,"inter_dist_cityblock_std": inter_dist_cityblock_std
+        # ,"inter_dist_cityblock_mean": inter_dist_cityblock_mean
+        # ,"inter_dist_cityblock_std": inter_dist_cityblock_std
     }
 
 def get_density_metrics(X, y_pred):
@@ -464,11 +464,11 @@ def run_offline_clustering_window(
         r.update(get_centroids_metrics(X, y_pred, r["centroids"]))
         
         #If hdbscan and have min span tree, calculate relative_validity (DBCV simplified)
-        if "HDBSCAN" and "gen_min_span_tree=True" in str(model):
-            try:
-                r["relative_validity"] = model_clone.relative_validity_
-            except:
-                r["relative_validity"] = float("nan")
+        # if "HDBSCAN" and "gen_min_span_tree=True" in str(model):
+        #     try:
+        #         r["relative_validity"] = model_clone.relative_validity_
+        #     except:
+        #         r["relative_validity"] = float("nan")
             
             # try:
             #     r["DBCV_variant"] = DBCV_variant(model_clone)
