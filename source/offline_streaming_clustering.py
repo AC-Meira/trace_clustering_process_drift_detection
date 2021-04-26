@@ -404,11 +404,11 @@ def compare_clusterings(interation_1, interation_2):
     resp_1 = interation_1.copy()
     resp_2 = interation_2.copy()
     
-    print('resp_1["i"]: ', resp_1["i"])
-    print('resp_2["i"]: ', resp_2["i"])
+    # print('resp_1["i"]: ', resp_1["i"])
+    # print('resp_2["i"]: ', resp_2["i"])
     
-    print('resp_1["centroids"]: ', resp_1["centroids"].shape)
-    print('resp_2["centroids"]: ', resp_2["centroids"].shape)
+    # print('resp_1["centroids"]: ', resp_1["centroids"].shape)
+    # print('resp_2["centroids"]: ', resp_2["centroids"].shape)
     
     ### Match centroids from both windows
     if len(resp_1["centroids"]) > len(resp_2["centroids"]):
@@ -476,10 +476,10 @@ def compare_clusterings(interation_1, interation_2):
         # print("resp_2_clusters_ind: ", resp_2_clusters_ind)
         
         
-    print("resp_1_clusters_ind: ", resp_1_clusters_ind)
-    print("resp_2_clusters_ind: ", resp_2_clusters_ind)
-    print('resp_1["centroids"]: ', resp_1["centroids"].shape)
-    print('resp_2["centroids"]: ', resp_2["centroids"].shape)
+    # print("resp_1_clusters_ind: ", resp_1_clusters_ind)
+    # print("resp_2_clusters_ind: ", resp_2_clusters_ind)
+    # print('resp_1["centroids"]: ', resp_1["centroids"].shape)
+    # print('resp_2["centroids"]: ', resp_2["centroids"].shape)
     
     r = {}
 
@@ -528,10 +528,12 @@ def compare_clusterings(interation_1, interation_2):
                 #     )
                     
                 # -------------------------
+                # diff_volume
                 # diff_radius
+                # diff_dist_intra_cluster 
                 # diff_skewness
-                # diff_dist_intra_cluster
                 # diff_cluster_std
+                # diff_wcss
                 # -------------------------
                 # For list of individual features per cluster, calculates the 
                 # average squared difference between them
@@ -578,8 +580,7 @@ def compare_clusterings(interation_1, interation_2):
         except Exception as e:
             raise e
             
-    # print(r.keys())
-    print("######################################################")
+    # print("######################################################")
     return r
 
 def run_offline_clustering_window(
