@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import scipy
 import scipy.stats
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report, confusion_matrix
+
 
 def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=0, log_size=0, margin_error=0, verbose=False) -> dict:
     """
@@ -21,118 +23,69 @@ def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=0, log_s
     ---------
         dict: dictionary with the value of each metric
     """
-    
-    # # Create list with drift detection prediction
-    # df_drifts_pred = pd.DataFrame(drifts, columns=['init'])
-    # df_drifts_pred['end'] = df_drifts_pred['init'] + window_size-1
-    # df_drifts_pred["y_pred"] = 1
-    # # df_drifts_pred.set_index("i", inplace=True)
-    
-    # # Create list with not drift detection prediction
-    # df_not_drifts_pred = pd.DataFrame(not_drifts, columns=['init'])
-    # df_not_drifts_pred['end'] = df_not_drifts_pred['init'] + window_size-1
-    # df_not_drifts_pred["y_pred"] = 0
-    # # df_not_drifts_pred.set_index("i", inplace=True)
-    
-    # # Concatenate predictions, sort them and Initiate y_true
-    # test_drifts = pd.concat([df_drifts_pred, df_not_drifts_pred], axis=0).sort_values(by='init', ascending=True).reset_index(drop=True)
-    # test_drifts['y_true'] = 0
-    # print(test_drifts)
-    
-    # # Create list with ground truth drifts ranges
-    # ground_truth_ranges = pd.DataFrame(resp, columns=['init'])
-    # ground_truth_ranges['end'] = ground_truth_ranges['init'] + margin_error*window_size-1
-    # print(ground_truth_ranges)
-    
-    # # Add ground_truth 
-    # for i, test_drift in test_drifts.iterrows():
-    #     for j, ground_truth in ground_truth_ranges.iterrows():
-    #         # print("i:",i)
-    #         # print("j:",j)
-    #         # print("test_drift:",test_drift)
-    #         # print("ground_truth:",ground_truth)
-            
-    #         if (
-    #             (((test_drift['init']>=ground_truth['init']) & (test_drift['init']<=ground_truth['end']))
-    #             | ((test_drift['end']>=ground_truth['init']) & (test_drift['end']<=ground_truth['end'])))
-    #             ):
-    #             print("if")
-    #             test_drift['y_true'] = 1
-    #             pass
-    # print(test_drifts)      
-
-    
     # Initialize metrics with 0
     precision = 0
     recall = 0
+    f1 = 0
     specificity = 0
     precision_negative = 0
     tp = 0
-    tn = 0
     delay = 0
     avg_delay = 0
-    resp_ = resp.copy()
-    resp_2 = resp.copy()
-    predicted_true = [0 for x in resp_]
+    predicted_true = [0 for x in resp]
     
-    # Transforms the window_size into a vector with the size of the drifts found
-    if isinstance(window_size, int):
-        window_size_drifts = np.repeat(window_size, len(drifts))
+    # Create list with all windows
+    windows = pd.DataFrame(range(window_size, log_size+window_size, window_size), columns=['init'])
+    windows['end'] = windows['init'] + window_size-1
     
-    # Iterates over all drifts found and to all ground truths drifts
-    for i in range(len(drifts)):    
-        for j in range(len(resp_)):            
-            # check if the drift found is within 2 * window_size after its true index
-            # or if is within 0.8 window_size before its true index (test had at least 20% drift)
-            # if (-0.8 * window_size_drifts[i] < drifts[i] - resp_[j] <= 2 * window_size_drifts[i]):
-            if (0 <= drifts[i] - resp_[j] <= 2 * window_size_drifts[i]):
-                if verbose:
-                    print((drifts[i], drifts[i] + window_size_drifts[i], resp_[j]))
-                
-                # drift found correctly
-                delay += drifts[i] - resp_[j]
-                tp += 1
-                resp_[j] = np.inf
-                predicted_true[j] = 1
-                break
-          
-            
-    # Transforms the window_size into a vector with the size of the drifts found
-    if isinstance(window_size, int):
-        window_size_not_drift = np.repeat(window_size, len(not_drifts))
-    # Iterates over all not drifts found and to all ground truths drifts
-    for i in range(len(not_drifts)):    
-        for j in range(len(resp_2)):            
-            # check if the drift found is within 2 * window_size after its true index
-            # or if is within 0,8 window_size before its true index (test had at least 20% drift)
-            # if not (-0.8 * window_size_not_drift[i] <= not_drifts[i] - resp_2[j] <= 2 * window_size_not_drift[i]):
-            if not (0 <= not_drifts[i] - resp_2[j] <= 2 * window_size_not_drift[i]):
-                if verbose:
-                    print((not_drifts[i], not_drifts[i] + window_size_not_drift[i], resp_2[j]))
-                
-                # not drift found correctly
-                tn += 1
-                break
+    # Add drift detections and not drift detections as y_pred. If didn't test a window fill with -1
+    windows['y_pred'] = [1 if window in drifts else 0 if window in not_drifts else -1 
+                          for window in windows['init']]
+        
+    # Add ground truth as y_true
+    windows['y_true'] = 0
+    windows['y_true_margin_error'] = 0
+    windows['ground_truth_init'] = -1
+    for i, window in windows.iterrows():
+        for ground_truth in resp:
+            if ((ground_truth <= window['init'] <= ground_truth + margin_error*window_size-1)
+                | (ground_truth <= window['end'] <= ground_truth + margin_error*window_size-1)):
+                window['y_true_margin_error'] = 1
+                window['ground_truth_init'] = ground_truth
+                if (window['init'] <= ground_truth <= window['end']):
+                    window['y_true'] = 1
+                pass
+     
+    # Consider drift detection inside margin of error
+    windows['y_true'] = np.where(((windows['y_pred']==1) & (windows['y_true_margin_error']==1)), 1, windows['y_true'])
+    windows.drop(columns='y_true_margin_error', inplace=True)
     
-    # Get metrics
-    if len(drifts) > 0:
-        precision = tp/len(drifts)   
+    # Remove windows that was ground truth but was detected after and inside margin of error
+    windows = windows[~((windows['y_true']==1) 
+                      & ((windows['y_true'].shift(-1)==1) 
+                          |(windows['y_true'].shift(-2)==1)))
+                      ]
 
-    if len(resp_) > 0:
-        recall = tp/len(resp_)
-        
-    try:
-        f1 = scipy.stats.hmean([precision, recall])
-    except ValueError:
-        f1 = 0.0
-        
-    if len(not_drifts) > 0:
-        specificity = tn/(tn+len(drifts)-tp)
-        precision_negative = tn/(tn+len(resp_)-tp)
+    # Remove windows that was not tested and was not ground truth as well
+    windows = windows[~((windows['y_true']==0) & (windows['y_pred']==-1))]
+    # print(windows) 
     
-    # Get delay
+    # Get metrics in confusion matrix
+    tn, fp, fn, tp = confusion_matrix(windows['y_true'], windows['y_pred']).ravel()
+    specificity = tn/(tn+fp)
+    precision_negative = tn/(tn+fn)
+    precision = tp/(tp+fp)
+    recall = tp/(tp+fn)
+    f1 = 2 * (precision * recall) / (precision + recall)
+    
+    # Get delay, average delay and list of correct predictions
     if tp > 0:
-        avg_delay = (delay/tp)/window_size_drifts[0]
+        delay = sum([row[1] - row[0]
+                    for row in windows[['ground_truth_init','init', 'y_true', 'y_pred']].values
+                    if row[2]==1 if row[3]==1
+                ])
+        avg_delay = (delay/tp)/window_size
+        predicted_true = list(windows[(windows['y_true']==1) & (windows['y_pred']==1)]['init'])
     
     return {
         "Precision": precision,
@@ -142,14 +95,107 @@ def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=0, log_s
         "Precision_negative": precision_negative,
         "Delay": avg_delay,
         "Correct_Predictions": predicted_true,
-        "Support_correct": sum(predicted_true),
-        "Support": len(drifts)+len(not_drifts),
+        "Support_correct": len(predicted_true),
+        "tests": len(drifts)+len(not_drifts),
         "Mean_test_per_drift": (len(drifts)+len(not_drifts))/len(resp),
-        # "Not_Drifts_Found": not_drifts,
+        # # "Not_Drifts_Found": not_drifts,
         "Drifts_Found": drifts,
         "Resp": resp
     }
+    
 
+#################################################################################################### 
+    # # Initialize metrics with 0
+    # precision = 0
+    # recall = 0
+    # specificity = 0
+    # precision_negative = 0
+    # tp = 0
+    # tn = 0
+    # delay = 0
+    # avg_delay = 0
+    # resp_ = resp.copy()
+    # resp_2 = resp.copy()
+    # predicted_true = [0 for x in resp_]
+    
+    # # Transforms the window_size into a vector with the size of the drifts found
+    # if isinstance(window_size, int):
+    #     window_size_drifts = np.repeat(window_size, len(drifts))
+    
+    # # Iterates over all drifts found and to all ground truths drifts
+    # for i in range(len(drifts)):    
+    #     for j in range(len(resp_)):            
+    #         # check if the drift found is within 2 * window_size after its true index
+    #         # or if is within 0.8 window_size before its true index (test had at least 20% drift)
+    #         # if (-0.8 * window_size_drifts[i] < drifts[i] - resp_[j] <= 2 * window_size_drifts[i]):
+    #         if (0 <= drifts[i] - resp_[j] <= 2 * window_size_drifts[i]):
+    #             if verbose:
+    #                 print((drifts[i], drifts[i] + window_size_drifts[i], resp_[j]))
+                
+    #             # drift found correctly
+    #             delay += drifts[i] - resp_[j]
+    #             tp += 1
+    #             resp_[j] = np.inf
+    #             predicted_true[j] = 1
+    #             break
+          
+            
+    # # Transforms the window_size into a vector with the size of the drifts found
+    # if isinstance(window_size, int):
+    #     window_size_not_drift = np.repeat(window_size, len(not_drifts))
+    # # Iterates over all not drifts found and to all ground truths drifts
+    # for i in range(len(not_drifts)):    
+    #     for j in range(len(resp_2)):            
+    #         # check if the drift found is within 2 * window_size after its true index
+    #         # or if is within 0,8 window_size before its true index (test had at least 20% drift)
+    #         # if not (-0.8 * window_size_not_drift[i] <= not_drifts[i] - resp_2[j] <= 2 * window_size_not_drift[i]):
+    #         if not (0 <= not_drifts[i] - resp_2[j] <= 2 * window_size_not_drift[i]):
+    #             if verbose:
+    #                 print((not_drifts[i], not_drifts[i] + window_size_not_drift[i], resp_2[j]))
+                
+    #             # not drift found correctly
+    #             tn += 1
+    #             break
+    
+    # # Get metrics
+    # if len(drifts) > 0:
+    #     precision = tp/len(drifts)   
+
+    # if len(resp_) > 0:
+    #     recall = tp/len(resp_)
+        
+    # try:
+    #     f1 = scipy.stats.hmean([precision, recall])
+    # except ValueError:
+    #     f1 = 0.0
+        
+    # if len(not_drifts) > 0:
+    #     specificity = tn/(tn+len(drifts)-tp)
+    #     precision_negative = tn/(tn+len(resp_)-tp)
+    
+    # # Get delay
+    # if tp > 0:
+    #     avg_delay = (delay/tp)/window_size_drifts[0]
+        
+
+    # return {
+    #     "Precision": precision,
+    #     "Recall": recall,
+    #     "F1": f1,
+    #     "Specificity": specificity,
+    #     "Precision_negative": precision_negative,
+    #     "Delay": avg_delay,
+    #     "Correct_Predictions": predicted_true,
+    #     "Support_correct": sum(predicted_true),
+    #     "Support": len(drifts)+len(not_drifts),
+    #     "Mean_test_per_drift": (len(drifts)+len(not_drifts))/len(resp),
+    #     # "Not_Drifts_Found": not_drifts,
+    #     "Drifts_Found": drifts,
+    #     "Resp": resp
+    # }
+
+
+#################################################################################################### 
 # def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=100, verbose=False) -> dict:
 #     """
 #     Given the drifts predicted and the ground truth, calculates binary classification metrics 
