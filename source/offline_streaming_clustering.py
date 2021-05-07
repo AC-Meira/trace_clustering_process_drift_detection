@@ -37,20 +37,19 @@ def get_validation_indexes(X, y_pred):
 
 def get_density_metrics(X, y_pred):
     """
-        Returns clustering validation indexes (Silhouette and DBi) 
-        based on input X and groups y_pred.
+        Returns density metrics
     """
     
     try:
         ch = calinski_harabasz_score(X, y_pred)
     except ValueError:
         ch = float("nan")
-        
+
         
     #Compute the density based cluster validity index for the clustering specified by labels 
     # and for each cluster in labels.
     try:
-        vi, vi_per_cluster = hdbscan.validity.validity_index(X.values, y_pred, per_cluster_scores=True)
+        vi, vi_per_cluster = hdbscan.validity.validity_index(X.values, y_pred, per_cluster_scores=True) #,  metric='cityblock'
         vi_mean = vi_per_cluster.mean()
         vi_std = vi_per_cluster.std()
         
@@ -58,7 +57,7 @@ def get_density_metrics(X, y_pred):
         vi = float("nan")
         vi_mean = float("nan")
         vi_std = float("nan")
-        # vi_per_cluster = list(["nan"])
+        vi_per_cluster = list(np.full(len(np.unique(y_pred)), np.nan))
     
         
     return {
@@ -66,102 +65,42 @@ def get_density_metrics(X, y_pred):
         ,"validity_index": vi
         ,"validity_index_mean": vi_mean
         ,"validity_index_std": vi_std
-        # ,"validity_index_per_cluster_list": list(vi_per_cluster)
+        ,"validity_index_per_cluster_list": list(vi_per_cluster)
     }
 
 
-def get_inter_dist_metrics(centroids):
+def get_inter_dist_metrics(centroids, dist_metric):
     """
-        Returns clustering validation indexes (Silhouette and DBi) 
-        based on input X and groups y_pred.
+        Returns inter clusters distances metrics
     """
-    # Inter-clusters distance
-    try:
-        inter_dist_euclidean = distance.pdist(centroids, metric = 'euclidean')
-        inter_dist_euclidean_mean = inter_dist_euclidean.mean()
-        inter_dist_euclidean_std = inter_dist_euclidean.std()
-        inter_dist_euclidean_max = inter_dist_euclidean.max()
-    except ValueError:
-        inter_dist_euclidean_mean = float("nan")
-        inter_dist_euclidean_std = float("nan")
-        inter_dist_euclidean_max = float("nan")
+    
+    r = {}
+    
+    # Get features for all distances in list
+    for dist in dist_metric:
+        try:
+            # Get general values
+            inter_dist = distance.pdist(centroids, metric = dist)
+            r["inter_dist_"+dist+"_mean"] = inter_dist.mean()
+            r["inter_dist_"+dist+"_std"] = inter_dist.std()
+            r["inter_dist_"+dist+"_max"] = inter_dist.max()
+            r["inter_dist_"+dist+"_min"] = inter_dist.min()
+            
+            # Get average of min/max distance between clusters
+            inter_dist_square = distance.squareform(inter_dist)
+            r["inter_dist_"+dist+"_max_avg"] = np.nanmax(np.where(inter_dist_square>0, inter_dist_square, np.NaN),axis=1).mean()
+            r["inter_dist_"+dist+"_min_avg"] = np.nanmin(np.where(inter_dist_square>0, inter_dist_square, np.NaN),axis=1).mean()
+
+        except ValueError:
+            r["inter_dist_"+dist+"_mean"] = float("nan")
+            r["inter_dist_"+dist+"_std"] = float("nan")
+            r["inter_dist_"+dist+"_max"] = float("nan")
+            r["inter_dist_"+dist+"_min"] = float("nan")
+            r["inter_dist_"+dist+"_max_avg"] = float("nan")
+            r["inter_dist_"+dist+"_min_avg"] = float("nan")
+    
+    return r
         
-    try:
-        inter_dist_correlation = distance.pdist(centroids, metric = 'correlation')
-        inter_dist_correlation_mean = inter_dist_correlation.mean()
-        inter_dist_correlation_std = inter_dist_correlation.std()
-        inter_dist_correlation_max = inter_dist_correlation.max()
-    except ValueError:
-        inter_dist_correlation_mean = float("nan")
-        inter_dist_correlation_std = float("nan")
-        inter_dist_correlation_max = float("nan")
-        
-    try:
-        inter_dist_hamming = distance.pdist(centroids, metric = 'hamming')
-        inter_dist_hamming_mean = inter_dist_hamming.mean()
-        inter_dist_hamming_std = inter_dist_hamming.std()
-        inter_dist_hamming_max = inter_dist_hamming.max()
-    except ValueError:
-        inter_dist_hamming_mean = float("nan")
-        inter_dist_hamming_std = float("nan")
-        inter_dist_hamming_max = float("nan")
-        
-    try:
-        inter_dist_jaccard = distance.pdist(centroids, metric = 'jaccard')
-        inter_dist_jaccard_mean = inter_dist_jaccard.mean()
-        inter_dist_jaccard_std = inter_dist_jaccard.std()
-        inter_dist_jaccard_max = inter_dist_jaccard.max()
-    except ValueError:
-        inter_dist_jaccard_mean = float("nan")
-        inter_dist_jaccard_std = float("nan")
-        inter_dist_jaccard_max = float("nan")
-        
-    try:
-        inter_dist_cosine = distance.pdist(centroids, metric = 'cosine')
-        inter_dist_cosine_mean = inter_dist_cosine.mean()
-        inter_dist_cosine_std = inter_dist_cosine.std()
-        inter_dist_cosinen_max = inter_dist_cosine.max()
-    except ValueError:
-        inter_dist_cosine_mean = float("nan")
-        inter_dist_cosine_std = float("nan")
-        inter_dist_cosinen_max = float("nan")
-        
-    try:
-        inter_dist_cityblock = distance.pdist(centroids, metric = 'cityblock')
-        inter_dist_cityblock_mean = inter_dist_cityblock.mean()
-        inter_dist_cityblock_std = inter_dist_cityblock.std()
-        inter_dist_cityblock_max = inter_dist_cityblock.max()
-    except ValueError:
-        inter_dist_cityblock_mean = float("nan")
-        inter_dist_cityblock_std = float("nan")
-        inter_dist_cityblock_max = float("nan")
-        
-        
-    return {
-        "inter_dist_euclidean_mean": inter_dist_euclidean_mean
-        ,"inter_dist_euclidean_std": inter_dist_euclidean_std
-        ,"inter_dist_euclidean_max": inter_dist_euclidean_max
-        
-        ,"inter_dist_correlation_mean": inter_dist_correlation_mean
-        ,"inter_dist_correlation_std": inter_dist_correlation_std
-        ,"inter_dist_correlation_max": inter_dist_correlation_max
-        
-        ,"inter_dist_hamming_mean": inter_dist_hamming_mean
-        ,"inter_dist_hamming_std": inter_dist_hamming_std
-        ,"inter_dist_hamming_max": inter_dist_hamming_max
-        
-        ,"inter_dist_jaccard_mean": inter_dist_jaccard_mean
-        ,"inter_dist_jaccard_std": inter_dist_jaccard_std
-        ,"inter_dist_jaccard_max": inter_dist_jaccard_max
-        
-        ,"inter_dist_cosine_mean": inter_dist_cosine_mean
-        ,"inter_dist_cosine_std": inter_dist_cosine_std
-        ,"inter_dist_cosinen_max": inter_dist_cosinen_max
-        
-        ,"inter_dist_cityblock_mean": inter_dist_cityblock_mean
-        ,"inter_dist_cityblock_std": inter_dist_cityblock_std
-        ,"inter_dist_cityblock_max": inter_dist_cityblock_max
-    }
 
 
 def get_centroids_metrics(X, y_pred, centroids):
@@ -177,11 +116,11 @@ def get_centroids_metrics(X, y_pred, centroids):
             centroids (np.array): Centroids of each cluster
     """
     r = {
-        "radius_list": [],
-        "dist_intra_cluster_list": [],
-        "skewness_list": [],
-        "cluster_std_list": [],
-        "wcss_list": []
+        "radius_list": []
+        ,"dist_intra_cluster_list": []
+        ,"skewness_list": []
+        ,"cluster_std_list": []
+        # ,"wcss_list": []
     }
 
     # Calculate features for each cluster
@@ -219,58 +158,24 @@ def get_centroids_metrics(X, y_pred, centroids):
             
         
         # Calculate within-cluster sum-of-squares
-        try:
-            wcss = sum(abs(distance.cdist(X_in_cluster, [centroids[j]]))**2)
-            r["wcss_list"].append(wcss)
-        except ValueError:
-            r["wcss_list"].append(0)
+        # try:
+        #     wcss = sum(abs(distance.cdist(X_in_cluster, [centroids[j]]))**2)
+        #     r["wcss_list"].append(wcss)
+        # except ValueError:
+        #     r["wcss_list"].append(0)
             
             
     # Get mean and std for all lists
-    try:
-        r["radius_mean"] = np.mean(r["radius_list"])
-        r["radius_std"] = np.std(r["radius_list"])
-        r["radius_sum"] = np.sum(r["radius_list"])
-    except ValueError:
-        r["radius_mean"] = float("nan")
-        r["radius_std"] = float("nan")
-        r["radius_sum"] = float("nan")
-    
-    try:
-        r["dist_intra_cluster_mean"] = np.mean(r["dist_intra_cluster_list"])
-        r["dist_intra_cluster_std"] = np.std(r["dist_intra_cluster_list"])
-        r["dist_intra_cluster_sum"] = np.sum(r["dist_intra_cluster_list"])
-    except ValueError:
-        r["dist_intra_cluster_mean"] = float("nan")
-        r["dist_intra_cluster_std"] = float("nan")
-        r["dist_intra_cluster_sum"] = float("nan")
-    
-    try:
-        r["cluster_std_mean"] = np.mean(r["cluster_std_list"])
-        r["cluster_std_std"] = np.std(r["cluster_std_list"])
-        r["cluster_std_sum"] = np.sum(r["cluster_std_list"])
-    except ValueError:
-        r["cluster_std_mean"] = float("nan")
-        r["cluster_std_std"] = float("nan")
-        r["cluster_std_sum"] = float("nan")
-      
-    try:     
-        r["skewness_mean"] = np.mean(r["skewness_list"])
-        r["skewness_std"] = np.std(r["skewness_list"])
-        r["skewness_sum"] = np.sum(r["skewness_list"])
-    except ValueError:
-        r["skewness_mean"] = float("nan")
-        r["skewness_std"] = float("nan")
-        r["skewness_sum"] = float("nan")
-    
-    try:
-        r["wcss_mean"] = np.mean(r["wcss_list"])
-        r["wcss_std"] = np.std(r["wcss_list"])
-        r["wcss_sum"] = np.sum(r["wcss_list"])
-    except ValueError:
-        r["wcss_mean"] = float("nan")
-        r["wcss_std"] = float("nan")
-        r["wcss_sum"] = float("nan")
+    features = list(r.keys())
+    for feature in features:
+        try:
+            r[feature+"_mean"] = np.mean(r[feature])
+            r[feature+"_std"] = np.std(r[feature])
+            r[feature+"_sum"] = np.sum(r[feature])
+        except ValueError:
+            r[feature+"_mean"] = float("nan")
+            r[feature+"_std"] = float("nan")
+            r[feature+"_sum"] = float("nan")
             
     return r
 
@@ -286,17 +191,6 @@ def get_mean_squared_error(clustering_i, clustering_j):
             clustering_j (np.array): Set of centroids at the following index
     """
     
-    # try:
-    #     mse = np.mean((clustering_i - clustering_j) ** 2, axis=0)
-
-    #     return {
-    #         "total_MSE": np.sum(mse),
-    #         "avg_MSE": np.mean(mse),
-    #         "count_non_zero_MSE": np.count_nonzero(mse)        
-    #     }
-    # except:
-    #     return {}
-    
     r = {}
     
     # Mean Squared Error (MSE)
@@ -304,35 +198,24 @@ def get_mean_squared_error(clustering_i, clustering_j):
         mse = np.mean((clustering_i - clustering_j) ** 2, axis=0)
         r["total_MSE"] = np.sum(mse)
         r["avg_MSE"] = np.mean(mse)
+        # count_non_zero_MSE = How many columns have any difference on MSE calculation
         r["count_non_zero_MSE"] = np.count_nonzero(mse)
     except ValueError:
         r["total_MSE"] = float("nan")
         r["avg_MSE"] = float("nan")
         r["count_non_zero_MSE"] = float("nan")
         
+    # Mean Squared Error (MAE)
+    # try:
+    #     mae = np.mean(abs(clustering_i - clustering_j), axis=0)
+    #     r["total_MAE"] = np.sum(mae)
+    #     r["avg_MAE"] = np.mean(mae)
+    #     r["count_non_zero_MAE"] = np.count_nonzero(mae)
+    # except ValueError:
+    #     r["total_MAE"] = float("nan")
+    #     r["avg_MAE"] = float("nan")
+    #     r["count_non_zero_MAE"] = float("nan")
         
-    # Root Mean Squared Error (RMSE)
-    try:
-        rmse = mse**(1/2)
-        r["total_RMSE"] = np.sum(rmse)
-        r["avg_RMSE"] = np.mean(rmse)
-        r["count_non_zero_RMSE"] = np.count_nonzero(rmse)
-    except ValueError:
-        r["total_RMSE"] = float("nan")
-        r["avg_RMSE"] = float("nan")
-        r["count_non_zero_RMSE"] = float("nan")
-        
-        
-    # Mean Absolute Error (MAE)
-    try:
-        mae = np.mean(abs(clustering_i - clustering_j), axis=0)
-        r["total_MAE"] = np.sum(mae)
-        r["avg_MAE"] = np.mean(mae)
-        r["count_non_zero_MAE"] = np.count_nonzero(mae)
-    except ValueError:
-        r["total_MAE"] = float("nan")
-        r["avg_MAE"] = float("nan")
-        r["count_non_zero_MAE"] = float("nan")
     
     return r
     
@@ -404,14 +287,20 @@ def compare_clusterings(interation_1, interation_2):
     resp_1 = interation_1.copy()
     resp_2 = interation_2.copy()
     
+    r = {}
+    
     # print('resp_1["i"]: ', resp_1["i"])
     # print('resp_2["i"]: ', resp_2["i"])
     
     # print('resp_1["centroids"]: ', resp_1["centroids"].shape)
     # print('resp_2["centroids"]: ', resp_2["centroids"].shape)
+
+    # If there is no centroid in the two clusterings, return empty
+    if len(resp_1["centroids"]) == 0 or len(resp_2["centroids"]) == 0:
+        return r
     
     ### Match centroids from both windows
-    if len(resp_1["centroids"]) > len(resp_2["centroids"]):
+    elif len(resp_1["centroids"]) > len(resp_2["centroids"]):
         # Get distances
         dist_centroids = distance.cdist(resp_1["centroids"], resp_2["centroids"])
         
@@ -472,8 +361,8 @@ def compare_clusterings(interation_1, interation_2):
         
         resp_1["centroids"] = resp_1["centroids"][resp_1_clusters_ind]
         resp_2["centroids"] = resp_2["centroids"][resp_2_clusters_ind]
-        # print("resp_1_clusters_ind: ", resp_1_clusters_ind)
-        # print("resp_2_clusters_ind: ", resp_2_clusters_ind)
+    #     print("resp_1_clusters_ind: ", resp_1_clusters_ind)
+    #     print("resp_2_clusters_ind: ", resp_2_clusters_ind)
         
         
     # print("resp_1_clusters_ind: ", resp_1_clusters_ind)
@@ -481,12 +370,7 @@ def compare_clusterings(interation_1, interation_2):
     # print('resp_1["centroids"]: ', resp_1["centroids"].shape)
     # print('resp_2["centroids"]: ', resp_2["centroids"].shape)
     
-    r = {}
-
-    # If there is no centroid in the two clusterings, return empty
-    if len(resp_1["centroids"]) == 0 or len(resp_2["centroids"]) == 0:
-        return r
-
+    
     for key in resp_1:
         try:
             if key not in ["i","y_pred"]:
@@ -584,9 +468,14 @@ def compare_clusterings(interation_1, interation_2):
     return r
 
 def run_offline_clustering_window(
-        tokens, representation_function,
-    model, window#, df
-    , sliding_window=False, sliding_step=5
+        tokens
+        , representation_function
+        , model
+        , distance_metric
+        , window
+        #, df
+        , sliding_window=False
+        , sliding_step=5
 ):
     """
         Runs the trace clustering approach based on moving trace windows
@@ -629,6 +518,12 @@ def run_offline_clustering_window(
         model_clone = sk_clone(model)
         y_pred = model_clone.fit_predict(X)
         
+        # if i == 0:
+        #     model_clone = sk_clone(model)
+        #     y_pred = model_clone.fit_predict(X)
+        # else:
+        #     y_pred, membership_strengths = hdbscan.approximate_predict(model_clone, X)
+            
         # Remove traces outliers
         n_outliers = y_pred[np.where(y_pred < 0)].size
         X = X.loc[np.where(y_pred >= 0)]
@@ -699,7 +594,7 @@ def run_offline_clustering_window(
         # ----------------------------
         # Add Inter-clusters distance
         # ----------------------------
-        r.update(get_inter_dist_metrics(r["centroids"]))
+        r.update(get_inter_dist_metrics(r["centroids"], distance_metric))
 
 
         # ----------------------------
@@ -716,11 +611,6 @@ def run_offline_clustering_window(
         #         r["relative_validity"] = model_clone.relative_validity_
         #     except:
         #         r["relative_validity"] = float("nan")
-            
-            # try:
-            #     r["DBCV_variant"] = DBCV_variant(model_clone)
-            # except:
-            #     r["DBCV_variant"] = float("nan")
             
 
             
@@ -761,4 +651,4 @@ def run_offline_clustering_window(
     all_metrics = run_df.join(measures_df)
     all_metrics.index += all_metrics.index[1]
 
-    return all_metrics
+    return all_metrics, X_full

@@ -83,8 +83,9 @@ def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=0, log_s
     for i in range(len(drifts)):    
         for j in range(len(resp_)):            
             # check if the drift found is within 2 * window_size after its true index
-            # or if is within 0,8 window_size before its true index (test had at least 20% drift)
-            if (-0.8 * window_size_drifts[i] < drifts[i] - resp_[j] <= 2 * window_size_drifts[i]):
+            # or if is within 0.8 window_size before its true index (test had at least 20% drift)
+            # if (-0.8 * window_size_drifts[i] < drifts[i] - resp_[j] <= 2 * window_size_drifts[i]):
+            if (0 <= drifts[i] - resp_[j] <= 2 * window_size_drifts[i]):
                 if verbose:
                     print((drifts[i], drifts[i] + window_size_drifts[i], resp_[j]))
                 
@@ -94,6 +95,7 @@ def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=0, log_s
                 resp_[j] = np.inf
                 predicted_true[j] = 1
                 break
+          
             
     # Transforms the window_size into a vector with the size of the drifts found
     if isinstance(window_size, int):
@@ -103,7 +105,8 @@ def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=0, log_s
         for j in range(len(resp_2)):            
             # check if the drift found is within 2 * window_size after its true index
             # or if is within 0,8 window_size before its true index (test had at least 20% drift)
-            if not (-0.8 * window_size_not_drift[i] < not_drifts[i] - resp_2[j] <= 2 * window_size_not_drift[i]):
+            # if not (-0.8 * window_size_not_drift[i] <= not_drifts[i] - resp_2[j] <= 2 * window_size_not_drift[i]):
+            if not (0 <= not_drifts[i] - resp_2[j] <= 2 * window_size_not_drift[i]):
                 if verbose:
                     print((not_drifts[i], not_drifts[i] + window_size_not_drift[i], resp_2[j]))
                 
