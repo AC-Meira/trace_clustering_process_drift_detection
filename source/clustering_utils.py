@@ -10,6 +10,18 @@ from scipy.spatial import distance
 from scipy.stats import skew
 # import model_utils
 
+
+def isin2D(sub_arrays, full_array):
+    out = np.zeros((sub_arrays.shape[0],len(full_array)),dtype=bool)
+    sidx = full_array.argsort()
+    idx = np.searchsorted(full_array, sub_arrays, sorter=sidx)
+    idx[idx==len(full_array)] = 0
+    idx0 = sidx[idx]
+    np.put_along_axis(out, idx0, full_array[idx0] == sub_arrays, axis=1)
+    return out
+
+
+
 class Monic:
     """
         Implementation of the cluster tracking methods from MONIC framework.
@@ -28,19 +40,23 @@ class Monic:
             
     """
 
-    clustering_i = []
-    clustering_j = []
-    overlap_matrix = {}
-    max_overlaps = {}
-    matches = {}
-    survivors = {}
-    splits = {}
-    absorptions = {}
-    t = 1
-
     def __init__(
         self, data_points_i, labels_i, data_points_j, labels_j, t=1, age=None, threshold_match=0.5, threshold_split=0.25
     ):
+            
+        # print('data_points_i:', len(data_points_i))
+        # print('labels_i:', labels_i)
+        # print('data_points_j:', len(data_points_j))
+        # print('labels_j:', labels_j)
+        
+        self.overlap_matrix = {}
+        self.max_overlaps = {}
+        self.matches = {}
+        self.survivors = {}
+        self.splits = {}
+        self.absorptions = {}
+        self.t = t
+        
         if age is None:
             self.age = self.no_age
         else:
@@ -48,24 +64,29 @@ class Monic:
         
         self.clustering_i = self.get_clusters(data_points_i, labels_i)
         self.clustering_j = self.get_clusters(data_points_j, labels_j)
-        self.t = t
+
         self.overlap_matrix = self.cluster_overlap_matrix()
+        print('self.overlap_matrix: ',self.overlap_matrix)
 
         for i in self.overlap_matrix:
-            self.max_overlaps[i] = utils.keys_values_with_max_value(
-                self.overlap_matrix[i]
-            )
-
+            self.max_overlaps[i] = self.keys_values_with_max_value(self.overlap_matrix[i])
+        print('self.max_overlaps: ',self.max_overlaps)
+        
         for i in self.overlap_matrix:
             self.matches[i] = self.get_cluster_match(i, threshold_match)
-
+        print('self.matches: ',self.matches)
+        
         for i in self.overlap_matrix:
             self.survivors[i] = self.cluster_survived(i, threshold_match)
+        print('self.survivors: ',self.survivors)
         
         for i in self.overlap_matrix:
             self.splits[i] = self.cluster_split(i, threshold_split, threshold_match)
             self.absorptions[i] = self.cluster_absorbed(i, threshold_match)            
-
+        print('self.splits: ',self.splits)
+        print('self.absorptions: ',self.absorptions)
+        
+       
     def no_age(self, i, t):
         """
         Aging function that controls the window/weight associated with
@@ -94,13 +115,21 @@ class Monic:
             (list) Clusters represented by the set of points assigned to them
         """
         resp = []
-
         for label in np.unique(labels):
             resp.append(data_points[labels == label])
 
         return resp
 
     
+    def keys_values_with_max_value(self, dict):
+        """
+        Returns a (key, value) pair of the key with the max value in the dict.
+        Source: https://stackoverflow.com/questions/268272/getting-key-with-maximum-value-in-dictionary
+        """
+        return [(key, val) for m in [max(dict.values())] 
+                for key, val in dict.items() if val == m]
+
+
     def cluster_overlap(self, cluster_X, cluster_Y):
         """
         Calculates the overlap between two clusters, i.e. how much one 
@@ -115,14 +144,22 @@ class Monic:
         """
         overlap_sum = 0
         X_sum = 0
-
+        
+        # cluster_X = cluster_X.to_numpy()
+        # cluster_Y = cluster_Y.to_numpy()
+        
         for i in range(len(cluster_X)):
-            # if np.in1d(cluster_X[i], cluster_Y).all():
-            if np.isin(cluster_X[i], cluster_Y).all():
-                overlap_sum += self.age(i, self.t)
-                # overlap_sum += 1
-            X_sum += self.age(i, self.t)
+            # print('cluster_X[i]: ', round(cluster_X.iloc[i],2))
+            # print('cluster_Y: ', round(cluster_Y,2))
+            # print('count: ', (np.isin(cluster_Y, cluster_X.iloc[i])))
+            
+            # if np.isin(round(cluster_Y,2), round(cluster_X.iloc[i],2) ).all():
+            #     overlap_sum += self.age(i, self.t)
+            # X_sum += self.age(i, self.t)
+            overlap_sum += (1 - distance.cdist(cluster_Y, [cluster_X.iloc[i]], metric = "cosine").mean())
+            X_sum += 1
 
+        # print('overlap_sum/X_sum: ',overlap_sum/X_sum)
         return overlap_sum/X_sum
 
     def cluster_overlap_matrix(self, pandas=False):
@@ -168,6 +205,7 @@ class Monic:
             (None) if there is none cluster that matches the criteria 
 
         """
+
         if self.max_overlaps[X][0][1] > threshold_match:
             return self.max_overlaps[X][0][0]
         else:
