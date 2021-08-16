@@ -64,7 +64,7 @@ def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=0, slidi
             if  ((ground_truth-sliding_step <= window['init']) & (window['end'] <= ground_truth+((1+margin_error)*(window_size-sliding_step)))):
                 window['y_true_margin_error'] = 1
                 window['ground_truth_init'] = ground_truth-sliding_step
-                if (window['init'] < ground_truth < window['end']):
+                if (window['init'] <= ground_truth <= window['end']):
                     window['y_true'] = 1
                 pass
      
@@ -297,7 +297,7 @@ def get_metrics(drifts: list, not_drifts: list, resp: list, window_size=0, slidi
 #     }
 
 def detect_concept_drift(
-    df, var_ref, rolling_window=3, std_tolerance=3, min_tol=0.0025, verbose=False
+    df_origin, var_ref, rolling_window=3, std_tolerance=3, min_tol=0.0025, verbose=False
 ):
     """
         Performs the drift detection algorithm. Based on the features measured from 
@@ -329,10 +329,15 @@ def detect_concept_drift(
     """
     # Initialize variables
     window_buffer = []
+    window_buffer_aux = []
+    drifts_buffer = []
+    drift_found = False
     drifts = []
     not_drifts = []
     mean = None
     std = None
+
+    df = df_origin.copy()
 
     # Lists to keep the rolling average and the lower and upper boundaries to 
     # be returned at the end of the execution of this method to support the plots
@@ -340,7 +345,7 @@ def detect_concept_drift(
     lowers = []
     uppers = []
     means = df[var_ref].rolling(window=rolling_window).mean().values.tolist()
-    
+    df[var_ref] = df[var_ref].rolling(window=rolling_window).mean()
 
     # Iterates over the values
     for i, row in df.iterrows():
@@ -356,6 +361,8 @@ def detect_concept_drift(
                 # To avoid errors in multiplication with 0
                 if mean == 0:
                     mean == 1
+                if std == 0:
+                    std == min_tol
 
                 # Calculates tolerance boundaries considering the rolling mean and std
                 expected_lower = min(
@@ -375,12 +382,21 @@ def detect_concept_drift(
                 
                 if expected_lower > row[var_ref] or row[var_ref] > expected_upper:
                     if verbose:
-                        print(i, expected_lower, expected_upper, row[var_ref])
-                    drifts.append(i)
-
-                    window_buffer = []
+                        print("Detection? ",i, expected_lower, expected_upper, row[var_ref])
+                        
+                    if len(drifts_buffer)>0:
+                        if verbose:
+                            print("Detection! ",i, expected_lower, expected_upper, row[var_ref])
+                        drifts.append(drifts_buffer[0])
+                        window_buffer = []
+                        drifts_buffer = []
+                        drift_found = True
+                    else:
+                        drifts_buffer.append(i)
+                        
                 else:
                     not_drifts.append(i)
+                    drifts_buffer = []
             else:
                 lowers.append(np.nan)
                 uppers.append(np.nan)
@@ -397,14 +413,19 @@ def detect_concept_drift(
             #         drifts.append(i)
             #         window_buffer = []
                     
-            if i in drifts:
+            if drift_found:
                 mean = None
                 std = None
-            else:
+                drift_found = False
+            elif i not in drifts_buffer:
                 mean = np.mean(window_buffer)
                 std = np.std(window_buffer)
 
+
     return drifts, not_drifts, {"lowers": lowers, "uppers": uppers, "means": means}
+
+
+
 
 # def detect_concept_drift(
 #     df, var_ref, rolling_window=3, std_tolerance=3, min_tol=0.0025, verbose=False
